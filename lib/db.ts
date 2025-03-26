@@ -1,21 +1,30 @@
+'use client'; // Add this to mark as client component
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from './supabase';
 import { toast } from 'react-toastify';
 
+// Define a proper Snippet interface to reuse
+interface Snippet {
+  id: string;
+  title: string;
+  description: string;
+  code: string;
+  language: string;
+  tags: string[];
+  created_at: string; // Change to string since you're using ISO strings
+  updated_at: string; // Change to string since you're using ISO strings
+  user_id: string;
+}
+
+// Define new type for adding snippets (omitting auto-generated fields)
+type NewSnippet = Omit<Snippet, 'id' | 'created_at' | 'updated_at' | 'user_id'>;
+type UpdateSnippet = Partial<NewSnippet>;
+
 interface SnippetDBSchema extends DBSchema {
   snippets: {
     key: string;
-    value: {
-      id: string;
-      title: string;
-      description: string;
-      code: string;
-      language: string;
-      tags: string[];
-      created_at: number;
-      updated_at: number;
-      user_id: string;
-    };
+    value: Snippet; // Use the Snippet interface
     indexes: { 'by-title': string; 'by-tags': string[] };
   };
 }
@@ -33,11 +42,11 @@ export async function initDB(): Promise<IDBPDatabase<SnippetDBSchema>> {
   });
 }
 
-export async function getAllSnippets() {
+export async function getAllSnippets(): Promise<Snippet[]> {
   const db = await initDB();
   const localSnippets = await db.getAll('snippets');
 
-  const { data: user } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return localSnippets;
 
   const { data: cloudSnippets } = await supabase
@@ -51,9 +60,9 @@ export async function getAllSnippets() {
     for (const cloudSnippet of cloudSnippets) {
       const localIndex = mergedSnippets.findIndex(local => local.id === cloudSnippet.id);
       if (localIndex >= 0) {
-        mergedSnippets[localIndex] = cloudSnippet;
+        mergedSnippets[localIndex] = cloudSnippet as Snippet;
       } else {
-        mergedSnippets.push(cloudSnippet);
+        mergedSnippets.push(cloudSnippet as Snippet);
       }
     }
     return mergedSnippets;
@@ -62,23 +71,19 @@ export async function getAllSnippets() {
   return localSnippets;
 }
 
-
-export async function addSnippet(snippet: Omit<SnippetDBSchema['snippets']['value'], 'id' | 'created_at' | 'updated_at' | 'user_id'>) {
+export async function addSnippet(snippet: NewSnippet): Promise<Snippet> {
   const db = await initDB();
   const id = crypto.randomUUID();
   const timestamp = new Date().toISOString();
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  console.log('Full Session Data:', session);
-  console.log('User:', session?.user);
-
   if (!session?.user) {
     console.error('Authentication Error:', {session});
     throw new Error("User not authenticated");
   }
 
-  const newSnippet = {
+  const newSnippet: Snippet = {
     ...snippet,
     id,
     user_id: session.user.id,
@@ -112,17 +117,15 @@ export async function addSnippet(snippet: Omit<SnippetDBSchema['snippets']['valu
   }
 }
 
-
-
 export async function updateSnippet(
   id: string,
-  snippet: Partial<Omit<SnippetDBSchema['snippets']['value'], 'id' | 'created_at' | 'updated_at' | 'user_id'>>
-) {
+  snippet: UpdateSnippet
+): Promise<Snippet> {
   const db = await initDB();
   const existingSnippet = await db.get('snippets', id);
   if (!existingSnippet) throw new Error('Snippet not found');
 
-  const updatedSnippet = {
+  const updatedSnippet: Snippet = {
     ...existingSnippet,
     ...snippet,
     updated_at: new Date().toISOString(),
@@ -136,30 +139,40 @@ export async function updateSnippet(
   // Create a clean version of the snippet without user_id for the update operation
   const { user_id, ...snippetWithoutUserId } = updatedSnippet;
 
-  await supabase
+  const { error } = await supabase
     .from('snippets')
     .update(snippetWithoutUserId)
     .eq('id', id)
     .eq('user_id', user.id);
+    
+  if (error) {
+    throw new Error(`Failed to update snippet in Supabase: ${error.message}`);
+  }
+  
+  return updatedSnippet;
 }
 
-
-export async function deleteSnippet(id: string) {
+export async function deleteSnippet(id: string): Promise<void> {
   const db = await initDB();
   await db.delete('snippets', id);
 
-  const { data: user } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (user) {
-    await supabase
+    const { error } = await supabase
       .from('snippets')
       .delete()
       .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting snippet from Supabase:', error);
+    }
   }
 
+  // This is a client-side operation, so it's safe to use toast here
   toast.warning('Snippet deleted successfully!');
 }
 
-export async function searchSnippets(query: string) {
+export async function searchSnippets(query: string): Promise<Snippet[]> {
   const db = await initDB();
   const snippets = await db.getAll('snippets');
   
@@ -170,8 +183,8 @@ export async function searchSnippets(query: string) {
   );
 }
 
-export async function getSnippetsByTag(tag: string) {
+export async function getSnippetsByTag(tag: string): Promise<Snippet[]> {
   const db = await initDB();
   const index = db.transaction('snippets').store.index('by-tags');
-  return index.getAll(tag);
+  return index.getAll([tag]);
 }
