@@ -12,6 +12,7 @@ import { AddEditSnippetDialog } from '@/components/AddEditSnippetDialog';
 import { getAllSnippets, searchSnippets, addSnippet, updateSnippet, deleteSnippet, getSnippetsByTag } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import Script from 'next/script';
 
 interface Snippet {
   id: string;
@@ -155,8 +156,9 @@ export default function Home() {
     <main className="container mx-auto px-4 py-6 sm:p-8">
       {/* Mobile-friendly header that stacks on small screens */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold md:text-4xl">DevSnippet</h1>
+        <h1 className="text-3xl font-bold md:text-4xl">DevSnippets</h1>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <Link href="/guide" target='_blank'>Need help?</Link>
           <ThemeToggle />
           <AuthButton />
           <Button 
@@ -250,12 +252,27 @@ export default function Home() {
         onSubmit={handleEditSnippet}
         initialData={editingSnippet ?? undefined}
       />
+      <Script id="structured-data" type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "DevSnippets",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Any",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "description": "A code snippet manager for developers to save, organize, and quickly find code snippets.",
+        })
+      }} />
     </main>
   ) : (
     <main className="container mx-auto px-4 py-6 md:px-8 md:py-8">
       {/* Mobile-friendly header */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 sm:mb-8">
-        <h1 className="text-3xl font-bold md:text-4xl">DevSnippet</h1>
+        <h1 className="text-3xl font-bold md:text-4xl">DevSnippets</h1>
         <div className="flex items-center gap-2 sm:gap-4">
           <ThemeToggle />
           <AuthButton />
@@ -323,6 +340,21 @@ export default function Home() {
         <p className="mb-5 text-sm text-muted-foreground sm:mb-6 sm:text-base">Sign in or create an account to get started</p>
         <AuthButton />
       </div>
+      <Script id="structured-data" type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "DevSnippets",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Any",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "description": "A code snippet manager for developers to save, organize, and quickly find code snippets.",
+        })
+      }} />
     </main>
   );
   

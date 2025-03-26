@@ -73,7 +73,7 @@ export default function GuidePage() {
     <main className="container mx-auto px-4 py-8 md:px-8">
       {/* Mobile-friendly header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold md:text-4xl">DevSnippet guide</h1>
+        <h1 className="text-3xl font-bold md:text-4xl">DevSnippets guide</h1>
         <div className="flex items-center gap-4">
           <ThemeToggle />
           <Link href="/">
