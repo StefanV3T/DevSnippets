@@ -1,5 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from './supabase';
+import { toast } from 'react-toastify';
 
 interface SnippetDBSchema extends DBSchema {
   snippets: {
@@ -129,12 +130,15 @@ export async function updateSnippet(
 
   await db.put('snippets', updatedSnippet);
 
-  const { data: user } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
+
+  // Create a clean version of the snippet without user_id for the update operation
+  const { user_id, ...snippetWithoutUserId } = updatedSnippet;
 
   await supabase
     .from('snippets')
-    .update(updatedSnippet)
+    .update(snippetWithoutUserId)
     .eq('id', id)
     .eq('user_id', user.id);
 }
@@ -151,6 +155,8 @@ export async function deleteSnippet(id: string) {
       .delete()
       .eq('id', id);
   }
+
+  toast.warning('Snippet deleted successfully!');
 }
 
 export async function searchSnippets(query: string) {

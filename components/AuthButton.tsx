@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { LogIn, LogOut, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import { toast } from 'react-toastify';
 
 export function AuthButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,8 +51,11 @@ export function AuthButton() {
       if (error) throw error;
 
       setIsOpen(false);
+      toast.success('Successfully signed in!');
+      window.location.reload();
     } catch (err: any) {
       setError(err.message);
+      toast.error(`Sign in failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -71,8 +75,11 @@ export function AuthButton() {
       if (error) throw error;
 
       setIsOpen(false);
+      toast.success('Account created! Check your email for confirmation.');
+      window.location.reload();
     } catch (err: any) {
       setError(err.message);
+      toast.error(`Registration failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -80,6 +87,8 @@ export function AuthButton() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    toast.info('You have been signed out');
+    window.location.reload();
   };
 
   return (
@@ -87,19 +96,18 @@ export function AuthButton() {
       {session?.user ? (
         <Button variant="outline" onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
+          Sign out
         </Button>
       ) : (
         <Button variant="outline" onClick={() => setIsOpen(true)}>
           <LogIn className="mr-2 h-4 w-4" />
-          Sign In
+          Sign in
         </Button>
       )}
-
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sign In or Create Account</DialogTitle>
+            <DialogTitle>Sign in or create account</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-2">
@@ -127,10 +135,10 @@ export function AuthButton() {
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={handleSignUp} disabled={isLoading}>
-                Sign Up
+                Sign up
               </Button>
               <Button type="submit" disabled={isLoading}>
-                Sign In
+                Sign in
               </Button>
             </div>
           </form>

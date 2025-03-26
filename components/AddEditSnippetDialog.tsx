@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle } from 'lucide-react';
 import Editor from '@monaco-editor/react';
+import { toast } from 'react-toastify';
 
 interface AddEditSnippetDialogProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ interface AddEditSnippetDialogProps {
     tags: string[];
   }) => void;
   initialData?: {
+    id: string;
     title: string;
     description: string;
     code: string;
@@ -73,6 +74,7 @@ export function AddEditSnippetDialog({
   onSubmit,
   initialData,
 }: AddEditSnippetDialogProps) {
+  const [id, setId] = useState(initialData?.id ?? '');
   const [title, setTitle] = useState(initialData?.title ?? '');
   const [description, setDescription] = useState(initialData?.description ?? '');
   const [code, setCode] = useState(initialData?.code ?? '');
@@ -80,6 +82,17 @@ export function AddEditSnippetDialog({
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>(initialData?.tags ?? []);
   const editorRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (initialData) {
+      setId(initialData.id);
+      setTitle(initialData.title);
+      setDescription(initialData.description);
+      setCode(initialData.code);
+      setLanguage(initialData.language);
+      setTags(initialData.tags);
+    }
+  }, [initialData]);
 
   // Effect to update the Monaco editor when language changes
   useEffect(() => {
@@ -99,6 +112,7 @@ export function AddEditSnippetDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ title, description, code, language, tags });
+    toast.success(initialData ? 'Snippet updated successfully!' : 'Snippet created successfully!');
     onOpenChange(false);
     resetForm();
   };
@@ -107,6 +121,8 @@ export function AddEditSnippetDialog({
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
       setTags([...tags, tagInput.trim()]);
       setTagInput('');
+    } else if (tags.includes(tagInput.trim())) {
+      toast.info('Tag already exists');
     }
   };
 
