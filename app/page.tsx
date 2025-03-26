@@ -28,8 +28,10 @@ export default function Home() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
+    checkUser();
     loadSnippets();
   }, []);
 
@@ -50,6 +52,14 @@ export default function Home() {
     });
     setAllTags(Array.from(tags));
   }, [snippets]);
+
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (user) {
+      setIsLoggedIn(true);
+    }
+  }
 
   const loadSnippets = async () => {
     const { data: { session } } = await supabase.auth.getSession();
