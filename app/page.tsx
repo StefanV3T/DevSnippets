@@ -24,6 +24,7 @@ interface Snippet {
 
 export default function Home() {
   const [snippets, setSnippets] = useState<Snippet[]>([]);
+  const [filteredSnippets, setFilteredSnippets] = useState<Snippet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -37,22 +38,42 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (searchQuery) {
-      searchSnippets(searchQuery).then(setSnippets);
-    } else if (selectedTag) {
-      getSnippetsByTag(selectedTag).then(setSnippets);
-    } else {
-      loadSnippets();
-    }
-  }, [searchQuery, selectedTag]);
-
-  useEffect(() => {
     const tags = new Set<string>();
     snippets.forEach((snippet) => {
       snippet.tags.forEach((tag) => tags.add(tag));
     });
     setAllTags(Array.from(tags));
   }, [snippets]);
+
+  // Apply filters to snippets
+  useEffect(() => {
+    if (!snippets.length) {
+      setFilteredSnippets([]);
+      return;
+    }
+    
+    let results = [...snippets];
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(snippet => 
+        snippet.title.toLowerCase().includes(query) ||
+        snippet.description.toLowerCase().includes(query) ||
+        snippet.code.toLowerCase().includes(query) ||
+        snippet.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply tag filter (only if no search query or we want both filters simultaneously)
+    if (selectedTag) {
+      results = results.filter(snippet => 
+        snippet.tags.includes(selectedTag)
+      );
+    }
+    
+    setFilteredSnippets(results);
+  }, [searchQuery, selectedTag, snippets]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -131,35 +152,90 @@ export default function Home() {
   };
 
   return isLoggedIn ? (
-    <main className="container mx-auto p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-4xl font-bold">DevSnippet</h1>
-        <div className="flex items-center gap-4">
+    <main className="container mx-auto px-4 py-6 sm:p-8">
+      {/* Mobile-friendly header that stacks on small screens */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-bold md:text-4xl">DevSnippet</h1>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <ThemeToggle />
           <AuthButton />
-          <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            className="flex-1 sm:flex-none"
+          >
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Snippet
+            <span className="sm:inline">Add Snippet</span>
           </Button>
         </div>
       </div>
-  
-      <div className="mb-6 space-y-4">
-        <div className="w-full max-w-md">
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+
+{/* Search and filters - Full width on mobile */}
+{snippets.length > 0 && (
+        <div className="mb-6 space-y-4">
+          <div className="w-full sm:max-w-md">
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          </div>
+          <div className="pb-1">
+            <TagFilter tags={allTags} selectedTag={selectedTag} onSelectTag={setSelectedTag} />
+          </div>
         </div>
-        <TagFilter tags={allTags} selectedTag={selectedTag} onSelectTag={setSelectedTag} />
-      </div>
-  
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {snippets.map((snippet) => (
-          <SnippetCard
-            key={snippet.id}
-            {...snippet}
-            onEdit={() => setEditingSnippet(snippet)}
-            onDelete={() => handleDeleteSnippet(snippet.id)}
-          />
-        ))}
+      )}
+
+      {/* Responsive grid - 1 column on mobile, 2-3 on larger screens */}
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {filteredSnippets.length === 0 && snippets.length > 0 && selectedTag && (
+          <div className="col-span-full flex flex-col items-center justify-center gap-4 rounded-lg border bg-muted p-4 sm:p-6">
+            <h2 className="text-center text-lg font-semibold text-muted-foreground sm:text-xl">
+              No snippets found with tag: {selectedTag}
+            </h2>
+            <Button 
+              variant="outline" 
+              onClick={() => setSelectedTag(null)}
+              className="mt-2 flex items-center gap-2"
+            >
+              Show all snippets
+            </Button>
+          </div>
+        )}
+        
+        {filteredSnippets.length === 0 && snippets.length > 0 && searchQuery && (
+          <div className="col-span-full flex flex-col items-center justify-center gap-4 rounded-lg border bg-muted p-4 sm:p-6">
+            <h2 className="text-center text-lg font-semibold text-muted-foreground sm:text-xl">
+              No snippets found for: {searchQuery}
+            </h2>
+            <Button 
+              variant="outline" 
+              onClick={() => setSearchQuery('')}
+              className="mt-2 flex items-center gap-2"
+            >
+              Clear search
+            </Button>
+          </div>
+        )}
+
+        {snippets.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center gap-4 rounded-lg border bg-muted p-4 sm:p-6">
+            <h2 className="text-center text-lg font-semibold text-muted-foreground sm:text-xl">
+              No snippets found
+            </h2>
+            <p className="text-center text-muted-foreground">
+              Start by creating your first snippet to organize your code.
+            </p>
+            <Button onClick={() => setIsAddDialogOpen(true)} className="mt-2 flex items-center gap-2">
+              <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+              Create Snippet
+            </Button>
+          </div>
+        )}
+
+{filteredSnippets.map((snippet) => (
+  <SnippetCard
+    key={snippet.id}
+    {...snippet}
+    onEdit={() => setEditingSnippet(snippet)}
+    onDelete={() => handleDeleteSnippet(snippet.id)}
+  />
+))} 
       </div>
   
       <AddEditSnippetDialog
@@ -176,72 +252,75 @@ export default function Home() {
       />
     </main>
   ) : (
-    <main className="container mx-auto px-4 py-8 md:px-8">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-4xl font-bold">DevSnippet</h1>
-        <div className="flex items-center gap-4">
+    <main className="container mx-auto px-4 py-6 md:px-8 md:py-8">
+      {/* Mobile-friendly header */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 sm:mb-8">
+        <h1 className="text-3xl font-bold md:text-4xl">DevSnippet</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
           <ThemeToggle />
           <AuthButton />
         </div>
       </div>
 
-      {/* Hero Section */}
-      <div className="my-16 flex flex-col items-center text-center">
-        <h2 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+      {/* Hero Section - Better text scaling for mobile */}
+      <div className="my-12 flex flex-col items-center text-center sm:my-16">
+        <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
           Store & organize your <span className="text-primary">code snippets</span>
         </h2>
-        <p className="mb-8 max-w-2xl text-xl text-muted-foreground">
+        <p className="mb-6 max-w-2xl text-lg text-muted-foreground sm:mb-8 sm:text-xl">
           DevSnippet helps you save, organize, and quickly find code snippets for your development projects
         </p>
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
           <AuthButton />
-          <Link href="/guide">
-          <Button variant="outline">
-            Jump into more details
-          </Button>
+          <Link href="/guide" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">
+              Jump into more details
+            </Button>
           </Link>
         </div>
       </div>
 
-      {/* Features Section */}
-      <div className="my-16 grid gap-8 md:grid-cols-3">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <div className="mb-4 rounded-full bg-primary/10 p-3 w-fit">
-            <PlusCircle className="h-6 w-6 text-primary" />
+      {/* Features Section - Single column on mobile, 3 columns on larger screens */}
+      <div className="my-12 grid gap-6 sm:my-16 md:grid-cols-3">
+        <div className="rounded-lg border bg-card p-5 shadow-sm sm:p-6">
+          <div className="mb-4 w-fit rounded-full bg-primary/10 p-3">
+            <PlusCircle className="h-5 w-5 text-primary sm:h-6 sm:w-6" />
           </div>
-          <h3 className="mb-2 text-xl font-bold">Save code snippets</h3>
-          <p className="text-muted-foreground">
+          <h3 className="mb-2 text-lg font-bold sm:text-xl">Save code snippets</h3>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Quickly save code snippets with syntax highlighting for over 10 programming languages
           </p>
         </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <div className="mb-4 rounded-full bg-primary/10 p-3 w-fit">
-            <svg className="h-6 w-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        
+        <div className="rounded-lg border bg-card p-5 shadow-sm sm:p-6">
+          <div className="mb-4 w-fit rounded-full bg-primary/10 p-3">
+            <svg className="h-5 w-5 text-primary sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
           </div>
-          <h3 className="mb-2 text-xl font-bold">Organize with tags</h3>
-          <p className="text-muted-foreground">
+          <h3 className="mb-2 text-lg font-bold sm:text-xl">Organize with tags</h3>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Add tags to your snippets and filter your collection to find what you need fast
           </p>
         </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <div className="mb-4 rounded-full bg-primary/10 p-3 w-fit">
-            <svg className="h-6 w-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        
+        <div className="rounded-lg border bg-card p-5 shadow-sm sm:p-6">
+          <div className="mb-4 w-fit rounded-full bg-primary/10 p-3">
+            <svg className="h-5 w-5 text-primary sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <h3 className="mb-2 text-xl font-bold">Powerful search</h3>
-          <p className="text-muted-foreground">
+          <h3 className="mb-2 text-lg font-bold sm:text-xl">Powerful search</h3>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Find any snippet instantly with our powerful search functionality
           </p>
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="my-16 rounded-xl bg-muted p-8 text-center">
-        <h3 className="mb-4 text-2xl font-bold">Ready to organize your code snippets?</h3>
-        <p className="mb-6 text-muted-foreground">Sign in or create an account to get started</p>
+      {/* CTA Section - Better padding for mobile */}
+      <div className="my-12 rounded-xl bg-muted p-6 text-center sm:my-16 sm:p-8">
+        <h3 className="mb-3 text-xl font-bold sm:mb-4 sm:text-2xl">Ready to organize your code snippets?</h3>
+        <p className="mb-5 text-sm text-muted-foreground sm:mb-6 sm:text-base">Sign in or create an account to get started</p>
         <AuthButton />
       </div>
     </main>

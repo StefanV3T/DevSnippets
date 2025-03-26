@@ -12,8 +12,8 @@ interface Snippet {
   code: string;
   language: string;
   tags: string[];
-  created_at: string; // Change to string since you're using ISO strings
-  updated_at: string; // Change to string since you're using ISO strings
+  created_at: string;
+  updated_at: string;
   user_id: string;
 }
 
